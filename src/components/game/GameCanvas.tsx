@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { useGameContext } from '@/context/GameContext';
 import Speedometer from './Speedometer';
@@ -218,12 +219,12 @@ const GameCanvas = () => {
       // Check for lap completion
       const lapPosition = -500 + (roadOffset % 2000);
       if (lapPosition > 0 && lapPosition - roadMovement <= 0) {
-        setLapCount(prev => prev + 1);
-        setScore(prev => prev + Math.floor(speed) * 10);
+        setLapCount(prevLap => prevLap + 1);
+        setScore(prevScore => prevScore + Math.floor(speed) * 10);
       }
       
       // Update score based on speed
-      setScore(prev => prev + Math.floor(speed / 20));
+      setScore(prevScore => prevScore + Math.floor(speed / 20));
     };
     
     const loopId = window.requestAnimationFrame(gameLoop);

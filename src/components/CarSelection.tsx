@@ -3,7 +3,7 @@ import React from 'react';
 import { useGameContext, CarStats } from '@/context/GameContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Speedometer, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Gauge, ChevronRight, ChevronLeft } from 'lucide-react';
 
 const CarSelection = () => {
   const { cars, setSelectedCar, setGameState } = useGameContext();
@@ -70,7 +70,7 @@ const CarSelection = () => {
           <div className="w-full space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-300 flex items-center">
-                <Speedometer className="mr-2" /> Speed
+                <Gauge className="mr-2" /> Speed
               </span>
               {getStatBars(currentCar.speed / 30)}
             </div>
