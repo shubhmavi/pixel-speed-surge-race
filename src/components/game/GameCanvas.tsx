@@ -56,9 +56,14 @@ const GameCanvas = () => {
     
     if (isSoundOn) {
       musicRef.current.volume = 0.3;
-      musicRef.current.play();
+      musicRef.current.play().catch(error => {
+        console.log("Audio play failed on load:", error);
+        // Some browsers require user interaction before playing audio
+      });
       engineSoundRef.current.volume = 0.2;
-      engineSoundRef.current.play();
+      engineSoundRef.current.play().catch(error => {
+        console.log("Engine sound play failed on load:", error);
+      });
     }
     
     return () => {
@@ -133,10 +138,10 @@ const GameCanvas = () => {
     }
 
     if (engineSoundRef.current && isSoundOn) {
-      engineSoundRef.current.play();
+      engineSoundRef.current.play().catch(err => console.log("Engine play error:", err));
     }
     if (musicRef.current && isSoundOn) {
-      musicRef.current.play();
+      musicRef.current.play().catch(err => console.log("Music play error:", err));
     }
 
     const gameLoop = () => {
