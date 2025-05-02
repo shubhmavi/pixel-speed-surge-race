@@ -51,7 +51,8 @@ const GameCanvas = () => {
     
     crashSoundRef.current = new Audio('/assets/crash.mp3');
     
-    musicRef.current = new Audio('/assets/music.mp3');
+    // Use the external URL directly for the background music
+    musicRef.current = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
     musicRef.current.loop = true;
     
     if (isSoundOn) {
