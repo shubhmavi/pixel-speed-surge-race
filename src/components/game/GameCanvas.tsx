@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { useGameContext } from '@/context/GameContext';
 import Speedometer from './Speedometer';
@@ -219,12 +218,12 @@ const GameCanvas = () => {
       // Check for lap completion
       const lapPosition = -500 + (roadOffset % 2000);
       if (lapPosition > 0 && lapPosition - roadMovement <= 0) {
-        setLapCount(prevLap => prevLap + 1);
-        setScore(prevScore => prevScore + Math.floor(speed) * 10);
+        setLapCount(lapCount + 1);
+        setScore(score + Math.floor(speed) * 10);
       }
       
       // Update score based on speed
-      setScore(prevScore => prevScore + Math.floor(speed / 20));
+      setScore(score + Math.floor(speed / 20));
     };
     
     const loopId = window.requestAnimationFrame(gameLoop);
@@ -235,7 +234,7 @@ const GameCanvas = () => {
         window.cancelAnimationFrame(gameLoopId);
       }
     };
-  }, [pressedKeys, carPosition, roadOffset, obstacles, isPaused, isSoundOn, currentSpeed]);
+  }, [pressedKeys, carPosition, roadOffset, obstacles, isPaused, isSoundOn, currentSpeed, lapCount, score]);
 
   const drawRoad = (ctx: CanvasRenderingContext2D) => {
     const canvasWidth = canvasRef.current!.width;
