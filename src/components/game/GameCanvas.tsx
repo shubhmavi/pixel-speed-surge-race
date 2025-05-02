@@ -1,14 +1,18 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { useGameContext } from '@/context/GameContext';
 import Speedometer from './Speedometer';
 import { Button } from '@/components/ui/button';
 import { Flag, Music, VolumeX, Volume2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type Position = { x: number; y: number };
 type Obstacle = { x: number; y: number; type: 'cone' | 'oil' | 'tree' };
+type TouchPosition = { x: number | null; y: number | null };
 
 const GameCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isMobile = useIsMobile();
   const { 
     selectedCar, 
     setGameState,
@@ -29,6 +33,10 @@ const GameCanvas = () => {
   const [gameLoopId, setGameLoopId] = useState<number | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [musicStarted, setMusicStarted] = useState(false);
+  
+  // Touch gesture handling
+  const [touchPosition, setTouchPosition] = useState<TouchPosition>({ x: null, y: null });
+  const [touchStartPosition, setTouchStartPosition] = useState<TouchPosition>({ x: null, y: null });
 
   // Game audio
   const engineSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -89,6 +97,80 @@ const GameCanvas = () => {
   // Start music playback manually
   const handleStartMusic = () => {
     setMusicStarted(true);
+  };
+
+  // Touch gesture handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      setTouchStartPosition({
+        x: touch.clientX,
+        y: touch.clientY
+      });
+      setTouchPosition({
+        x: touch.clientX,
+        y: touch.clientY
+      });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      setTouchPosition({
+        x: touch.clientX,
+        y: touch.clientY
+      });
+
+      // Update pressed keys based on touch gestures
+      if (touchStartPosition.x !== null && touchStartPosition.y !== null) {
+        const deltaX = touch.clientX - touchStartPosition.x;
+        const deltaY = touch.clientY - touchStartPosition.y;
+        const threshold = 20; // minimum distance to trigger
+
+        // Clear previous touch directions
+        setPressedKeys(prev => ({
+          ...prev,
+          ArrowLeft: false,
+          ArrowRight: false,
+          ArrowUp: false,
+          ArrowDown: false
+        }));
+
+        // Set new directions based on touch movement
+        if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
+          if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            // Horizontal movement is dominant
+            if (deltaX > threshold) {
+              setPressedKeys(prev => ({ ...prev, ArrowRight: true }));
+            } else if (deltaX < -threshold) {
+              setPressedKeys(prev => ({ ...prev, ArrowLeft: true }));
+            }
+          } else {
+            // Vertical movement is dominant
+            if (deltaY < -threshold) {
+              setPressedKeys(prev => ({ ...prev, ArrowUp: true }));
+            } else if (deltaY > threshold) {
+              setPressedKeys(prev => ({ ...prev, ArrowDown: true }));
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    // Reset touch positions
+    setTouchPosition({ x: null, y: null });
+    
+    // Reset pressed keys from touch
+    setPressedKeys(prev => ({
+      ...prev,
+      ArrowLeft: false,
+      ArrowRight: false,
+      ArrowUp: false,
+      ArrowDown: false
+    }));
   };
 
   // Key press listeners
@@ -398,7 +480,12 @@ const GameCanvas = () => {
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div 
+      className="relative h-full w-full overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <canvas 
         ref={canvasRef} 
         width={800} 
@@ -456,6 +543,13 @@ const GameCanvas = () => {
         <div className="absolute bottom-4 left-4">
           <Speedometer />
         </div>
+
+        {/* Touch instructions for mobile */}
+        {isMobile && !isPaused && (
+          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-racing-black/70 px-4 py-2 rounded-lg pointer-events-none">
+            <p className="text-white text-center text-sm">Swipe to steer and control speed</p>
+          </div>
+        )}
       </div>
       
       {/* Pause Menu */}
@@ -482,39 +576,18 @@ const GameCanvas = () => {
         </div>
       )}
       
-      {/* Mobile Controls (for touch screens) */}
-      <div className="absolute bottom-4 right-4 md:hidden grid grid-cols-3 gap-2">
-        <Button 
-          onTouchStart={() => setPressedKeys(prev => ({ ...prev, 'ArrowLeft': true }))}
-          onTouchEnd={() => setPressedKeys(prev => ({ ...prev, 'ArrowLeft': false }))}
-          className="bg-racing-black/70 w-16 h-16 rounded-full flex items-center justify-center pointer-events-auto"
-        >
-          ←
-        </Button>
-        <div className="grid grid-rows-2 gap-2">
-          <Button 
-            onTouchStart={() => setPressedKeys(prev => ({ ...prev, 'ArrowUp': true }))}
-            onTouchEnd={() => setPressedKeys(prev => ({ ...prev, 'ArrowUp': false }))}
-            className="bg-racing-black/70 w-16 h-16 rounded-full flex items-center justify-center pointer-events-auto"
+      {/* Only show touch buttons as a fallback for older devices that may not support gestures well */}
+      {isMobile && !isPaused && (
+        <div className="absolute bottom-4 right-4 opacity-30 hover:opacity-70 transition-opacity">
+          <Button
+            onClick={handlePause}
+            variant="outline"
+            className="bg-racing-black/50 border-white/20 text-white p-3 pointer-events-auto"
           >
-            ↑
-          </Button>
-          <Button 
-            onTouchStart={() => setPressedKeys(prev => ({ ...prev, 'ArrowDown': true }))}
-            onTouchEnd={() => setPressedKeys(prev => ({ ...prev, 'ArrowDown': false }))}
-            className="bg-racing-black/70 w-16 h-16 rounded-full flex items-center justify-center pointer-events-auto"
-          >
-            ↓
+            Pause
           </Button>
         </div>
-        <Button 
-          onTouchStart={() => setPressedKeys(prev => ({ ...prev, 'ArrowRight': true }))}
-          onTouchEnd={() => setPressedKeys(prev => ({ ...prev, 'ArrowRight': false }))}
-          className="bg-racing-black/70 w-16 h-16 rounded-full flex items-center justify-center pointer-events-auto"
-        >
-          →
-        </Button>
-      </div>
+      )}
     </div>
   );
 };
