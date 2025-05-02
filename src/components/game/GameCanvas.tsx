@@ -28,6 +28,7 @@ const GameCanvas = () => {
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [gameLoopId, setGameLoopId] = useState<number | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [musicStarted, setMusicStarted] = useState(false);
 
   // Game audio
   const engineSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -51,28 +52,44 @@ const GameCanvas = () => {
     
     crashSoundRef.current = new Audio('/assets/crash.mp3');
     
-    // Use the external URL directly for the background music
     musicRef.current = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
     musicRef.current.loop = true;
-    
-    if (isSoundOn) {
-      musicRef.current.volume = 0.3;
-      musicRef.current.play().catch(error => {
-        console.log("Audio play failed on load:", error);
-        // Some browsers require user interaction before playing audio
-      });
-      engineSoundRef.current.volume = 0.2;
-      engineSoundRef.current.play().catch(error => {
-        console.log("Engine sound play failed on load:", error);
-      });
-    }
+    musicRef.current.volume = 0.3;
     
     return () => {
       engineSoundRef.current?.pause();
       crashSoundRef.current?.pause();
       musicRef.current?.pause();
     };
-  }, [isSoundOn]);
+  }, []);
+
+  // Handle music playback separately
+  useEffect(() => {
+    if (isSoundOn && musicStarted && musicRef.current) {
+      musicRef.current.play()
+        .then(() => console.log("Music playback started successfully"))
+        .catch(error => console.log("Music play failed:", error));
+    } else if (musicRef.current) {
+      musicRef.current.pause();
+    }
+  }, [isSoundOn, musicStarted]);
+
+  // Handle engine sound separately
+  useEffect(() => {
+    if (isSoundOn && !isPaused && engineSoundRef.current) {
+      engineSoundRef.current.volume = 0.2;
+      engineSoundRef.current.play()
+        .then(() => console.log("Engine sound started successfully"))
+        .catch(error => console.log("Engine sound play failed:", error));
+    } else if (engineSoundRef.current) {
+      engineSoundRef.current.pause();
+    }
+  }, [isSoundOn, isPaused]);
+
+  // Start music playback manually
+  const handleStartMusic = () => {
+    setMusicStarted(true);
+  };
 
   // Key press listeners
   useEffect(() => {
@@ -85,6 +102,11 @@ const GameCanvas = () => {
       // Escape key to pause
       if (e.key === 'Escape') {
         setIsPaused(prev => !prev);
+      }
+      
+      // M key to toggle music
+      if (e.key === 'm') {
+        setMusicStarted(prev => !prev);
       }
     };
     
@@ -132,17 +154,7 @@ const GameCanvas = () => {
       if (engineSoundRef.current && isSoundOn) {
         engineSoundRef.current.pause();
       }
-      if (musicRef.current && isSoundOn) {
-        musicRef.current.pause();
-      }
       return;
-    }
-
-    if (engineSoundRef.current && isSoundOn) {
-      engineSoundRef.current.play().catch(err => console.log("Engine play error:", err));
-    }
-    if (musicRef.current && isSoundOn) {
-      musicRef.current.play().catch(err => console.log("Music play error:", err));
     }
 
     const gameLoop = () => {
@@ -407,7 +419,7 @@ const GameCanvas = () => {
             <span className="text-xl text-white">Score: {score}</span>
           </div>
           
-          <div className="bg-racing-black/70 px-4 py-2 rounded-lg">
+          <div className="bg-racing-black/70 px-4 py-2 rounded-lg flex items-center gap-2">
             <Button 
               onClick={toggleSound}
               variant="ghost" 
@@ -415,8 +427,30 @@ const GameCanvas = () => {
             >
               {isSoundOn ? <Volume2 /> : <VolumeX />}
             </Button>
+            <Button
+              onClick={handleStartMusic}
+              variant="ghost"
+              className="text-white p-0 h-auto pointer-events-auto"
+              disabled={!isSoundOn || musicStarted}
+            >
+              <Music className={musicStarted ? "text-racing-green" : "text-white"} />
+            </Button>
           </div>
         </div>
+        
+        {/* Music start notification */}
+        {isSoundOn && !musicStarted && (
+          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-racing-black/70 px-6 py-3 rounded-lg pointer-events-auto">
+            <p className="text-white text-center mb-2">Click the music icon or press M key to start background music</p>
+            <Button
+              onClick={handleStartMusic}
+              variant="default"
+              className="bg-racing-green hover:bg-racing-green/80 mx-auto block"
+            >
+              <Music className="mr-2" /> Play Music
+            </Button>
+          </div>
+        )}
         
         {/* Bottom bar */}
         <div className="absolute bottom-4 left-4">
