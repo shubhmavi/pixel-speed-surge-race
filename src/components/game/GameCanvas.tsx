@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { useGameContext } from '@/context/GameContext';
 import Speedometer from './Speedometer';
@@ -37,6 +36,8 @@ const GameCanvas = () => {
   // Touch gesture handling
   const [touchPosition, setTouchPosition] = useState<TouchPosition>({ x: null, y: null });
   const [touchStartPosition, setTouchStartPosition] = useState<TouchPosition>({ x: null, y: null });
+  // Auto-drive on mobile
+  const [autoAccelerate, setAutoAccelerate] = useState(false);
 
   // Game audio
   const engineSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -99,7 +100,7 @@ const GameCanvas = () => {
     setMusicStarted(true);
   };
 
-  // Touch gesture handlers
+  // Touch gesture handlers - simplified for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length > 0) {
       const touch = e.touches[0];
@@ -122,37 +123,24 @@ const GameCanvas = () => {
         y: touch.clientY
       });
 
-      // Update pressed keys based on touch gestures
-      if (touchStartPosition.x !== null && touchStartPosition.y !== null) {
+      // Mobile controls focus only on left/right steering
+      if (touchStartPosition.x !== null) {
         const deltaX = touch.clientX - touchStartPosition.x;
-        const deltaY = touch.clientY - touchStartPosition.y;
-        const threshold = 20; // minimum distance to trigger
+        const threshold = 10; // More sensitive threshold for steering
 
-        // Clear previous touch directions
+        // Clear previous touch directions for steering only
         setPressedKeys(prev => ({
           ...prev,
           ArrowLeft: false,
           ArrowRight: false,
-          ArrowUp: false,
-          ArrowDown: false
         }));
 
-        // Set new directions based on touch movement
-        if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
-          if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            // Horizontal movement is dominant
-            if (deltaX > threshold) {
-              setPressedKeys(prev => ({ ...prev, ArrowRight: true }));
-            } else if (deltaX < -threshold) {
-              setPressedKeys(prev => ({ ...prev, ArrowLeft: true }));
-            }
-          } else {
-            // Vertical movement is dominant
-            if (deltaY < -threshold) {
-              setPressedKeys(prev => ({ ...prev, ArrowUp: true }));
-            } else if (deltaY > threshold) {
-              setPressedKeys(prev => ({ ...prev, ArrowDown: true }));
-            }
+        // Set new steering direction based on touch movement
+        if (Math.abs(deltaX) > threshold) {
+          if (deltaX > threshold) {
+            setPressedKeys(prev => ({ ...prev, ArrowRight: true }));
+          } else if (deltaX < -threshold) {
+            setPressedKeys(prev => ({ ...prev, ArrowLeft: true }));
           }
         }
       }
@@ -163,15 +151,20 @@ const GameCanvas = () => {
     // Reset touch positions
     setTouchPosition({ x: null, y: null });
     
-    // Reset pressed keys from touch
+    // Reset pressed keys from touch, but only steering
     setPressedKeys(prev => ({
       ...prev,
       ArrowLeft: false,
       ArrowRight: false,
-      ArrowUp: false,
-      ArrowDown: false
     }));
   };
+
+  // Auto-accelerate on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setAutoAccelerate(true);
+    }
+  }, [isMobile]);
 
   // Key press listeners
   useEffect(() => {
@@ -230,7 +223,7 @@ const GameCanvas = () => {
     return () => clearInterval(obstacleInterval);
   }, [obstacles.length]);
 
-  // Main game loop
+  // Main game loop - updated for auto-accelerate
   useEffect(() => {
     if (isPaused) {
       if (engineSoundRef.current && isSoundOn) {
@@ -250,16 +243,28 @@ const GameCanvas = () => {
       // Draw road
       drawRoad(ctx);
       
-      // Move car based on key presses
+      // Move car based on input
       let speed = currentSpeed;
       
-      if (pressedKeys['ArrowUp'] || pressedKeys['w']) {
-        speed = Math.min(speed + acceleration * 0.1, maxSpeed);
-      } else if (pressedKeys['ArrowDown'] || pressedKeys['s']) {
-        speed = Math.max(speed - acceleration * 0.2, 0);
+      // Auto-accelerate on mobile, otherwise use keyboard controls
+      if (isMobile && autoAccelerate) {
+        // Gradually increase speed to 70% of max speed
+        const targetSpeed = maxSpeed * 0.7;
+        if (speed < targetSpeed) {
+          speed = Math.min(speed + acceleration * 0.05, targetSpeed);
+        } else if (speed > targetSpeed) {
+          speed = Math.max(speed - acceleration * 0.05, targetSpeed);
+        }
       } else {
-        // Slow down gradually if no keys are pressed
-        speed = Math.max(speed - acceleration * 0.05, 0);
+        // Regular keyboard controls for non-mobile
+        if (pressedKeys['ArrowUp'] || pressedKeys['w']) {
+          speed = Math.min(speed + acceleration * 0.1, maxSpeed);
+        } else if (pressedKeys['ArrowDown'] || pressedKeys['s']) {
+          speed = Math.max(speed - acceleration * 0.2, 0);
+        } else {
+          // Slow down gradually if no keys are pressed
+          speed = Math.max(speed - acceleration * 0.05, 0);
+        }
       }
       
       // Adjust engine sound based on speed
@@ -278,8 +283,8 @@ const GameCanvas = () => {
         newX += turnSpeed;
       }
       
-      // Nitro boost
-      if (pressedKeys[' '] && speed < maxSpeed) {
+      // Nitro boost (keep for non-mobile)
+      if (!isMobile && pressedKeys[' '] && speed < maxSpeed) {
         speed = Math.min(speed + acceleration * 0.2, maxSpeed * 1.2);
       }
       
@@ -334,7 +339,7 @@ const GameCanvas = () => {
         window.cancelAnimationFrame(gameLoopId);
       }
     };
-  }, [pressedKeys, carPosition, roadOffset, obstacles, isPaused, isSoundOn, currentSpeed, lapCount, score]);
+  }, [pressedKeys, carPosition, roadOffset, obstacles, isPaused, isSoundOn, currentSpeed, lapCount, score, isMobile, autoAccelerate]);
 
   const drawRoad = (ctx: CanvasRenderingContext2D) => {
     const canvasWidth = canvasRef.current!.width;
@@ -544,10 +549,10 @@ const GameCanvas = () => {
           <Speedometer />
         </div>
 
-        {/* Touch instructions for mobile */}
+        {/* Mobile instructions */}
         {isMobile && !isPaused && (
           <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-racing-black/70 px-4 py-2 rounded-lg pointer-events-none">
-            <p className="text-white text-center text-sm">Swipe to steer and control speed</p>
+            <p className="text-white text-center text-sm">Swipe left or right to steer</p>
           </div>
         )}
       </div>
@@ -576,9 +581,9 @@ const GameCanvas = () => {
         </div>
       )}
       
-      {/* Only show touch buttons as a fallback for older devices that may not support gestures well */}
+      {/* Only show pause button on mobile */}
       {isMobile && !isPaused && (
-        <div className="absolute bottom-4 right-4 opacity-30 hover:opacity-70 transition-opacity">
+        <div className="absolute bottom-4 right-4 opacity-70 hover:opacity-100 transition-opacity">
           <Button
             onClick={handlePause}
             variant="outline"

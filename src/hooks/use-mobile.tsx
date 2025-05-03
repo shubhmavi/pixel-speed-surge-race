@@ -16,10 +16,19 @@ export function useIsMobile() {
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  // Also check for touch devices since some tablets are touch but not mobile-sized
+  // Check for touch devices and mobile browsers
   const isTouchDevice = React.useMemo(() => {
     if (typeof window === 'undefined') return false
-    return 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    
+    // Check for touch capability
+    const hasTouchCapability = 'ontouchstart' in window || 
+      (window.navigator && window.navigator.maxTouchPoints > 0) ||
+      ('msMaxTouchPoints' in window.navigator && window.navigator.msMaxTouchPoints > 0);
+    
+    // Check for mobile user agent
+    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    return hasTouchCapability || isMobileUA;
   }, [])
 
   return isMobile || isTouchDevice
