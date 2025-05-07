@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { useGameContext } from '@/context/GameContext';
 import Speedometer from './Speedometer';
@@ -43,6 +44,7 @@ const GameCanvas = () => {
   const engineSoundRef = useRef<HTMLAudioElement | null>(null);
   const crashSoundRef = useRef<HTMLAudioElement | null>(null);
   const musicRef = useRef<HTMLAudioElement | null>(null);
+  const [audioLoadError, setAudioLoadError] = useState<boolean>(false);
 
   // Game configs
   const carWidth = 50;
@@ -56,44 +58,88 @@ const GameCanvas = () => {
 
   // Initialize audio elements
   useEffect(() => {
-    engineSoundRef.current = new Audio('/assets/engine.mp3');
-    engineSoundRef.current.loop = true;
-    
-    crashSoundRef.current = new Audio('/assets/crash.mp3');
-    
-    musicRef.current = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
-    musicRef.current.loop = true;
-    musicRef.current.volume = 0.3;
-    
-    return () => {
-      engineSoundRef.current?.pause();
-      crashSoundRef.current?.pause();
-      musicRef.current?.pause();
-    };
+    try {
+      engineSoundRef.current = new Audio('/assets/engine.mp3');
+      engineSoundRef.current.loop = true;
+      
+      crashSoundRef.current = new Audio('/assets/crash.mp3');
+      
+      musicRef.current = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+      musicRef.current.loop = true;
+      musicRef.current.volume = 0.3;
+      
+      // Add error handlers
+      engineSoundRef.current.addEventListener('error', () => {
+        console.log('Engine sound failed to load');
+        setAudioLoadError(true);
+      });
+      
+      crashSoundRef.current.addEventListener('error', () => {
+        console.log('Crash sound failed to load');
+        setAudioLoadError(true);
+      });
+      
+      musicRef.current.addEventListener('error', () => {
+        console.log('Music failed to load');
+        setAudioLoadError(true);
+      });
+      
+      return () => {
+        if (engineSoundRef.current) {
+          engineSoundRef.current.pause();
+          engineSoundRef.current.removeEventListener('error', () => {});
+        }
+        if (crashSoundRef.current) {
+          crashSoundRef.current.pause();
+          crashSoundRef.current.removeEventListener('error', () => {});
+        }
+        if (musicRef.current) {
+          musicRef.current.pause();
+          musicRef.current.removeEventListener('error', () => {});
+        }
+      };
+    } catch (error) {
+      console.error('Error initializing audio:', error);
+      setAudioLoadError(true);
+    }
   }, []);
 
   // Handle music playback separately
   useEffect(() => {
-    if (isSoundOn && musicStarted && musicRef.current) {
+    if (isSoundOn && musicStarted && musicRef.current && !audioLoadError) {
       musicRef.current.play()
         .then(() => console.log("Music playback started successfully"))
-        .catch(error => console.log("Music play failed:", error));
+        .catch(error => {
+          console.log("Music play failed:", error);
+          setAudioLoadError(true);
+        });
     } else if (musicRef.current) {
-      musicRef.current.pause();
+      try {
+        musicRef.current.pause();
+      } catch (error) {
+        console.error('Error pausing music:', error);
+      }
     }
-  }, [isSoundOn, musicStarted]);
+  }, [isSoundOn, musicStarted, audioLoadError]);
 
   // Handle engine sound separately
   useEffect(() => {
-    if (isSoundOn && !isPaused && engineSoundRef.current) {
+    if (isSoundOn && !isPaused && engineSoundRef.current && !audioLoadError) {
       engineSoundRef.current.volume = 0.2;
       engineSoundRef.current.play()
         .then(() => console.log("Engine sound started successfully"))
-        .catch(error => console.log("Engine sound play failed:", error));
+        .catch(error => {
+          console.log("Engine sound play failed:", error);
+          setAudioLoadError(true);
+        });
     } else if (engineSoundRef.current) {
-      engineSoundRef.current.pause();
+      try {
+        engineSoundRef.current.pause();
+      } catch (error) {
+        console.error('Error pausing engine sound:', error);
+      }
     }
-  }, [isSoundOn, isPaused]);
+  }, [isSoundOn, isPaused, audioLoadError]);
 
   // Start music playback manually
   const handleStartMusic = () => {
@@ -464,8 +510,10 @@ const GameCanvas = () => {
         carBottom > obstacleTop &&
         carTop < obstacleBottom
       ) {
-        if (crashSoundRef.current && isSoundOn) {
-          crashSoundRef.current.play();
+        if (crashSoundRef.current && isSoundOn && !audioLoadError) {
+          crashSoundRef.current.play().catch(error => {
+            console.error('Error playing crash sound:', error);
+          });
         }
         handleCrash();
       }
@@ -523,7 +571,7 @@ const GameCanvas = () => {
               onClick={handleStartMusic}
               variant="ghost"
               className="text-white p-0 h-auto pointer-events-auto"
-              disabled={!isSoundOn || musicStarted}
+              disabled={!isSoundOn || musicStarted || audioLoadError}
             >
               <Music className={musicStarted ? "text-racing-green" : "text-white"} />
             </Button>
@@ -531,7 +579,7 @@ const GameCanvas = () => {
         </div>
         
         {/* Music start notification */}
-        {isSoundOn && !musicStarted && (
+        {isSoundOn && !musicStarted && !audioLoadError && (
           <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-racing-black/70 px-6 py-3 rounded-lg pointer-events-auto">
             <p className="text-white text-center mb-2">Click the music icon or press M key to start background music</p>
             <Button
@@ -541,6 +589,13 @@ const GameCanvas = () => {
             >
               <Music className="mr-2" /> Play Music
             </Button>
+          </div>
+        )}
+        
+        {/* Sound error message */}
+        {audioLoadError && (
+          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-racing-black/70 px-6 py-3 rounded-lg pointer-events-auto">
+            <p className="text-white text-center mb-2">Sound could not be loaded. Playing without sound.</p>
           </div>
         )}
         
